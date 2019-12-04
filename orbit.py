@@ -4,11 +4,24 @@ import math
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "ORBIT"
-TIME_PER_FRAME = 1/80
+TIME_PER_FRAME = 1/10
+
+STAR_CENTER_X = SCREEN_WIDTH/2
+STAR_CENTER_Y = SCREEN_HEIGHT/2
 
 G_CONSTANT = 0.0000000000667 
 
-class vector:
+def distance(body1, body2):
+    return math.sqrt(math.pow(body2.x - body1.x, 2) + math.pow(body2.y - body1.y, 2))
+
+def newton_gravitational_law(body1, body2):
+    return G_CONSTANT*((body1.m*body2.m)/math.pow(distance(body1, body2), 2))
+
+def calc_acceleration(force, mass):
+    return force/mass
+
+
+class Vector:
     x = 0
     y = 0
 
@@ -22,9 +35,12 @@ class SpaceBody:
     r = 0
     m = 0 # mass in kg
     color = (0, 0, 0) # arcade.color
+    
+    grav_law = 0
 
-    vel = vector(0, 0)
-    rotation_acc = vector(0, 0)
+    vel = Vector(0, 0)
+    init_vel = Vector(0, 0)
+    rotation_acc = Vector(0, 0)
 
     def __init__(self, x, y, r, m, color):
         self.x = x
@@ -33,10 +49,32 @@ class SpaceBody:
         self.m = m
         self.color = color
 
-    def update_pos(self):
+    def set_grav_law(self, val):
+        self.grav_law = val
+        self.init_vel = Vector(math.sqrt(abs((self.y - STAR_CENTER_Y)*self.grav_law)), 0)
+
+    def update_pos(self, star):
         self.x = self.x + self.vel.x*TIME_PER_FRAME + (1/2)*self.rotation_acc.x*TIME_PER_FRAME
         self.y = self.y + self.vel.y*TIME_PER_FRAME + (1/2)*self.rotation_acc.y*TIME_PER_FRAME
-        pass
+
+        dx = self.x - STAR_CENTER_X
+        dy = self.y - STAR_CENTER_Y
+        
+        if dx != 0:
+            direction = math.tanh(dy/dx)
+            self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
+            self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
+
+            self.vel.y = math.sqrt(abs(self.rotation_acc.x*dx))
+            self.vel.x = math.sqrt(abs(self.rotation_acc.y*dy))
+        else:
+            self.rotation_acc.x = 0
+            self.rotation_acc.y = self.grav_law
+
+        if dy < 0:
+            self.vel.x *= -1
+        if dx > 0:
+            self.vel.y *= -1
 
 
 class MyGame(arcade.Window):
@@ -47,6 +85,8 @@ class MyGame(arcade.Window):
     If you do need a method, delete the 'pass' and replace it
     with your own code. Don't leave 'pass' in this program.
     """
+
+    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, 15, 198900000000000, arcade.color.AMBER)
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
@@ -60,13 +100,13 @@ class MyGame(arcade.Window):
 
     def setup(self):
         # Create your sprites and sprite lists here
-        star = SpaceBody(SCREEN_WIDTH/2, SCREEN_HEIGHT/2, 15, 198900000000000, arcade.color.AMBER)
 
-        earth = SpaceBody(star.x, star.y + 50, 5, 1000000, arcade.color.BLUE)
-        earth.rotation_acc = vector(0, -self.newton_gravitational_law(earth, star)/earth.m)
-        earth.vel = vector(math.sqrt(abs(earth.rotation_acc.y*self.distance(earth, star))), 0)
+        earth = SpaceBody(self.star.x, self.star.y + 50, 5, 1000000000, arcade.color.BLUE)
+        earth.set_grav_law(newton_gravitational_law(earth, self.star)/earth.m)
+        earth.rotation_acc = Vector(0, -earth.grav_law)
+        earth.vel = Vector(math.sqrt(abs(earth.rotation_acc.y*distance(earth, self.star))), 0)
 
-        self.space_body_list.append(star)
+        self.space_body_list.append(self.star)
         self.space_body_list.append(earth)
 
     def on_draw(self):
@@ -89,7 +129,7 @@ class MyGame(arcade.Window):
         """
 
         for space_body in self.space_body_list:
-            space_body.update_pos()
+            space_body.update_pos(self.star)
 
     def on_key_press(self, key, key_modifiers):
         """
@@ -123,12 +163,6 @@ class MyGame(arcade.Window):
         Called when a user releases a mouse button.
         """
         pass
-
-    def distance(self, body1, body2):
-        return math.sqrt(math.pow(body2.x - body1.x, 2) + math.pow(body2.y - body1.y, 2))
-
-    def newton_gravitational_law(self, body1, body2):
-        return G_CONSTANT*((body1.m*body2.m)/self.distance(body1, body2))
 
 
 def main():
