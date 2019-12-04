@@ -42,6 +42,8 @@ class SpaceBody:
     init_vel = Vector(0, 0)
     rotation_acc = Vector(0, 0)
 
+    rot_vel_ratio = 0
+
     def __init__(self, x, y, r, m, color):
         self.x = x
         self.y = y
@@ -51,25 +53,37 @@ class SpaceBody:
 
     def set_grav_law(self, val):
         self.grav_law = val
-        self.init_vel = Vector(math.sqrt(abs((self.y - STAR_CENTER_Y)*self.grav_law)), 0)
+        self.init_vel_size = math.sqrt(abs((self.y - STAR_CENTER_Y)*self.grav_law))
+        self.rot_vel_ratio = self.init_vel_size/self.grav_law
 
     def update_pos(self, star):
         self.x = self.x + self.vel.x*TIME_PER_FRAME + (1/2)*self.rotation_acc.x*TIME_PER_FRAME
         self.y = self.y + self.vel.y*TIME_PER_FRAME + (1/2)*self.rotation_acc.y*TIME_PER_FRAME
 
-        dx = self.x - STAR_CENTER_X
-        dy = self.y - STAR_CENTER_Y
+        dx = (self.x - STAR_CENTER_X)
+        dy = (self.y - STAR_CENTER_Y)
         
         if dx != 0:
-            direction = math.tanh(dy/dx)
+            direction = math.atan(abs(dy)/abs(dx))
             self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
             self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
 
-            self.vel.y = math.sqrt(abs(self.rotation_acc.x*dx))
-            self.vel.x = math.sqrt(abs(self.rotation_acc.y*dy))
+            if dx > 0:
+                self.rotation_acc.x *= -1
+            if dy > 0:
+                self.rotation_acc.y *= -1
         else:
-            self.rotation_acc.x = 0
             self.rotation_acc.y = self.grav_law
+            self.rotation_acc.x = 0
+
+            if dy > 0:
+                self.rotation_acc.y *= -1
+
+
+            self.vel = self.init_vel
+
+        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
 
         if dy < 0:
             self.vel.x *= -1
@@ -101,9 +115,9 @@ class MyGame(arcade.Window):
     def setup(self):
         # Create your sprites and sprite lists here
 
-        earth = SpaceBody(self.star.x, self.star.y + 50, 5, 1000000000, arcade.color.BLUE)
+        earth = SpaceBody(self.star.x, self.star.y + 100, 5, 1000000000, arcade.color.BLUE)
         earth.set_grav_law(newton_gravitational_law(earth, self.star)/earth.m)
-        earth.rotation_acc = Vector(0, -earth.grav_law)
+        earth.rotation_acc = Vector(0, earth.grav_law)
         earth.vel = Vector(math.sqrt(abs(earth.rotation_acc.y*distance(earth, self.star))), 0)
 
         self.space_body_list.append(self.star)
