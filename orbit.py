@@ -8,6 +8,7 @@ TIME_PER_FRAME = 1
 
 STAR_CENTER_X = SCREEN_WIDTH/2
 STAR_CENTER_Y = SCREEN_HEIGHT/2
+STAR_MASS = 19890000000000
 
 G_CONSTANT = 6.6674 * math.pow(10, -11)
 
@@ -86,13 +87,13 @@ class SpaceBody:
 
             self.vel = self.init_vel
 
-        #v_direction = math.pi - math.pi/2 - direction
-        #self.vel.x = self.init_vel_size * math.cos(v_direction)
-        #self.vel.y = self.init_vel_size * math.sin(v_direction)
+        v_direction = math.pi - math.pi/2 - direction
+        self.vel.x = self.init_vel_size * math.cos(v_direction)
+        self.vel.y = self.init_vel_size * math.sin(v_direction)
 
         # calculate new component velocities from new acceleration
-        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+        # self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+        # self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
 
         #self.vel.y = self.init_vel_size*math.sin()
 
@@ -100,6 +101,126 @@ class SpaceBody:
             self.vel.x *= -1
         if dx > 0:
             self.vel.y *= -1
+
+class TextButton:
+    """ Text-based button """
+
+    def __init__(self,
+                 center_x, center_y,
+                 width, height,
+                 text,
+                 font_size=18,
+                 font_face="Arial",
+                 face_color=arcade.color.LIGHT_GRAY,
+                 highlight_color=arcade.color.WHITE,
+                 shadow_color=arcade.color.GRAY,
+                 button_height=2):
+        self.center_x = center_x
+        self.center_y = center_y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.font_size = font_size
+        self.font_face = font_face
+        self.pressed = False
+        self.face_color = face_color
+        self.highlight_color = highlight_color
+        self.shadow_color = shadow_color
+        self.button_height = button_height
+
+    def draw(self):
+        """ Draw the button """
+        arcade.draw_rectangle_filled(self.center_x, self.center_y, self.width,
+                                     self.height, self.face_color)
+
+        if not self.pressed:
+            color = self.shadow_color
+        else:
+            color = self.highlight_color
+
+        # Bottom horizontal
+        arcade.draw_line(self.center_x - self.width / 2, self.center_y - self.height / 2,
+                         self.center_x + self.width / 2, self.center_y - self.height / 2,
+                         color, self.button_height)
+
+        # Right vertical
+        arcade.draw_line(self.center_x + self.width / 2, self.center_y - self.height / 2,
+                         self.center_x + self.width / 2, self.center_y + self.height / 2,
+                         color, self.button_height)
+
+        if not self.pressed:
+            color = self.highlight_color
+        else:
+            color = self.shadow_color
+
+        # Top horizontal
+        arcade.draw_line(self.center_x - self.width / 2, self.center_y + self.height / 2,
+                         self.center_x + self.width / 2, self.center_y + self.height / 2,
+                         color, self.button_height)
+
+        # Left vertical
+        arcade.draw_line(self.center_x - self.width / 2, self.center_y - self.height / 2,
+                         self.center_x - self.width / 2, self.center_y + self.height / 2,
+                         color, self.button_height)
+
+        x = self.center_x
+        y = self.center_y
+        if not self.pressed:
+            x -= self.button_height
+            y += self.button_height
+
+        arcade.draw_text(self.text, x, y,
+                         arcade.color.BLACK, font_size=self.font_size,
+                         width=self.width, align="center",
+                         anchor_x="center", anchor_y="center")
+
+    def on_press(self):
+        self.pressed = True
+
+    def on_release(self):
+        self.pressed = False
+
+
+def check_mouse_press_for_buttons(x, y, button_list):
+    """ Given an x, y, see if we need to register any button clicks. """
+    for button in button_list:
+        if x > button.center_x + button.width / 2:
+            continue
+        if x < button.center_x - button.width / 2:
+            continue
+        if y > button.center_y + button.height / 2:
+            continue
+        if y < button.center_y - button.height / 2:
+            continue
+        button.on_press()
+
+def check_mouse_release_for_buttons(_x, _y, button_list):
+    """ If a mouse button has been released, see if we need to process
+        any release events. """
+    for button in button_list:
+        if button.pressed:
+            button.on_release()
+
+class ButtonIncreaseMassSun(TextButton):
+    def __init__(self, center_x, center_y, action_function):
+        # TODO: Change text size/font if necessary
+        super().__init__(center_x, center_y, 100, 40, "Incr. Mass: Sun", 20, "Arial")
+        self.action_function = action_function
+
+    def on_release(self):
+        super().on_release()
+        self.action_function()
+
+class ButtonDecreaseMassSun(TextButton):
+    def __init__(self, center_x, center_y, action_function):
+        # TODO: Change text size/font if necessary
+        super().__init__(center_x, center_y, 100, 40, "Decr. Mass: Sun", 20, "Arial")
+        self.action_function = action_function
+
+    def on_release(self):
+        super().on_release()
+        self.action_function()
+
 
 
 class MyGame(arcade.Window):
@@ -111,7 +232,7 @@ class MyGame(arcade.Window):
     with your own code. Don't leave 'pass' in this program.
     """
 
-    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, 15, 198900000000000, arcade.color.AMBER)
+    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, 15, STAR_MASS, arcade.color.AMBER)
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
@@ -121,10 +242,13 @@ class MyGame(arcade.Window):
         # If you have sprite lists, you should create them here,
         # and set them to None
 
-        self.space_body_list = []
+        self.space_body_list = None
+        self.button_list = None
 
     def setup(self):
         # Create your sprites and sprite lists here
+        self.space_body_list = []
+        self.button_list = []
 
         earth = SpaceBody(self.star.x, self.star.y + 100, 5, 1000000000, arcade.color.BLUE)
         earth.set_grav_law(newton_gravitational_law(earth, self.star)/earth.m)
@@ -133,6 +257,14 @@ class MyGame(arcade.Window):
 
         self.space_body_list.append(self.star)
         self.space_body_list.append(earth)
+
+        # TODO: CHANGE THESE
+        button_increase_sun_mass = ButtonIncreaseMassSun(60, 570, self.increase_sun_mass)
+        self.button_list.append(button_increase_sun_mass)
+
+        button_decrease_sun_mass = ButtonDecreaseMassSun(60, 515, self.decrease_sun_mass)
+        self.button_list.append(button_decrease_sun_mass)
+
 
     def on_draw(self):
         """
@@ -145,6 +277,9 @@ class MyGame(arcade.Window):
 
         for space_body in self.space_body_list:
             arcade.draw_circle_filled(space_body.x, space_body.y, space_body.r, space_body.color)
+
+        for button in self.button_list:
+            button.draw()
 
     def on_update(self, delta_time):
         """
@@ -181,13 +316,21 @@ class MyGame(arcade.Window):
         """
         Called when the user presses a mouse button.
         """
-        pass
+        check_mouse_press_for_buttons(x, y, self.button_list)
 
     def on_mouse_release(self, x, y, button, key_modifiers):
         """
         Called when a user releases a mouse button.
         """
-        pass
+        check_mouse_release_for_buttons(x, y, self.button_list)
+
+    # TODO: Does this work?
+    def increase_sun_mass(self):
+        self.star.m = self.star.m + (STAR_MASS * 0.5)
+
+    # TODO: Does this work?
+    def decrease_sun_mass(self):
+        self.star.m = self.star.m - (STAR_MASS * 0.5)
 
 
 def main():
