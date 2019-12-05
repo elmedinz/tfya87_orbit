@@ -1,7 +1,7 @@
 import arcade
 import math
 
-SCREEN_WIDTH = 800
+SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "ORBIT"
 TIME_PER_FRAME = 1/10
@@ -9,17 +9,13 @@ TIME_PER_FRAME = 1/10
 STAR_CENTER_X = SCREEN_WIDTH/2
 STAR_CENTER_Y = SCREEN_HEIGHT/2
 
-G_CONSTANT = 0.0000000000667 
+G_CONSTANT = 6.6674 * math.pow(10, -11)
 
 def distance(body1, body2):
     return math.sqrt(math.pow(body2.x - body1.x, 2) + math.pow(body2.y - body1.y, 2))
 
 def newton_gravitational_law(body1, body2):
     return G_CONSTANT*((body1.m*body2.m)/math.pow(distance(body1, body2), 2))
-
-def calc_acceleration(force, mass):
-    return force/mass
-
 
 class Vector:
     x = 0
@@ -42,7 +38,11 @@ class SpaceBody:
     init_vel = Vector(0, 0)
     rotation_acc = Vector(0, 0)
 
+    init_vel_size = 0
+
     rot_vel_ratio = 0
+
+    const_dist = 0
 
     def __init__(self, x, y, r, m, color):
         self.x = x
@@ -57,16 +57,20 @@ class SpaceBody:
         self.rot_vel_ratio = self.init_vel_size/self.grav_law
 
     def update_pos(self, star):
+        # move the body
         self.x = self.x + self.vel.x*TIME_PER_FRAME + (1/2)*self.rotation_acc.x*TIME_PER_FRAME
         self.y = self.y + self.vel.y*TIME_PER_FRAME + (1/2)*self.rotation_acc.y*TIME_PER_FRAME
 
         dx = (self.x - STAR_CENTER_X)
         dy = (self.y - STAR_CENTER_Y)
+
+        direction = 0
         
+        # calclulate each component acceleration with constant gravity pull from star
         if dx != 0:
             direction = math.atan(abs(dy)/abs(dx))
-            self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
-            self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
+            self.rotation_acc.x = math.cos(direction) * self.grav_law
+            self.rotation_acc.y = math.sin(direction) * self.grav_law
 
             if dx > 0:
                 self.rotation_acc.x *= -1
@@ -82,8 +86,15 @@ class SpaceBody:
 
             self.vel = self.init_vel
 
-        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+        v_direction = math.pi - math.pi/2 - direction
+        self.vel.x = self.init_vel_size * math.cos(v_direction)
+        self.vel.y = self.init_vel_size * math.sin(v_direction)
+
+        # calculate new component velocities from new acceleration
+        #self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+        #self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+
+        #self.vel.y = self.init_vel_size*math.sin()
 
         if dy < 0:
             self.vel.x *= -1
