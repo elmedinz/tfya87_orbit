@@ -4,7 +4,7 @@ import math
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "ORBIT"
-TIME_PER_FRAME = 1/10
+TIME_PER_FRAME = 1
 
 STAR_CENTER_X = SCREEN_WIDTH/2
 STAR_CENTER_Y = SCREEN_HEIGHT/2
@@ -69,8 +69,8 @@ class SpaceBody:
         # calclulate each component acceleration with constant gravity pull from star
         if dx != 0:
             direction = math.atan(abs(dy)/abs(dx))
-            self.rotation_acc.x = math.cos(direction) * self.grav_law
-            self.rotation_acc.y = math.sin(direction) * self.grav_law
+            self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
+            self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
 
             if dx > 0:
                 self.rotation_acc.x *= -1
@@ -86,13 +86,13 @@ class SpaceBody:
 
             self.vel = self.init_vel
 
-        v_direction = math.pi - math.pi/2 - direction
-        self.vel.x = self.init_vel_size * math.cos(v_direction)
-        self.vel.y = self.init_vel_size * math.sin(v_direction)
+        #v_direction = math.pi - math.pi/2 - direction
+        #self.vel.x = self.init_vel_size * math.cos(v_direction)
+        #self.vel.y = self.init_vel_size * math.sin(v_direction)
 
         # calculate new component velocities from new acceleration
-        #self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-        #self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
 
         #self.vel.y = self.init_vel_size*math.sin()
 
