@@ -9,6 +9,10 @@ TIME_PER_FRAME = 1
 STAR_CENTER_X = SCREEN_WIDTH/2
 STAR_CENTER_Y = SCREEN_HEIGHT/2
 STAR_MASS = 19890000000000
+STAR_SIZE = 15
+
+STAR_SIZE_INCREASE = 1
+STAR_SIZE_DECREASE = 1
 
 G_CONSTANT = 6.6674 * math.pow(10, -11)
 
@@ -78,7 +82,7 @@ class SpaceBody:
             if dy > 0:
                 self.rotation_acc.y *= -1
         else:
-            self.rotation_acc.y = self.grav_law
+            self.rotation_acc.y = newton_gravitational_law(self, star)/self.m
             self.rotation_acc.x = 0
 
             if dy > 0:
@@ -87,15 +91,13 @@ class SpaceBody:
 
             self.vel = self.init_vel
 
-        v_direction = math.pi - math.pi/2 - direction
-        self.vel.x = self.init_vel_size * math.cos(v_direction)
-        self.vel.y = self.init_vel_size * math.sin(v_direction)
+        #v_direction = math.pi - math.pi/2 - direction
+        #self.vel.x = self.init_vel_size * math.cos(v_direction)
+        #self.vel.y = self.init_vel_size * math.sin(v_direction)
 
         # calculate new component velocities from new acceleration
-        # self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-        # self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
-
-        #self.vel.y = self.init_vel_size*math.sin()
+        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
 
         if dy < 0:
             self.vel.x *= -1
@@ -232,7 +234,7 @@ class MyGame(arcade.Window):
     with your own code. Don't leave 'pass' in this program.
     """
 
-    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, 15, STAR_MASS, arcade.color.AMBER)
+    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, STAR_SIZE, STAR_MASS, arcade.color.AMBER)
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
@@ -244,19 +246,23 @@ class MyGame(arcade.Window):
 
         self.space_body_list = None
         self.button_list = None
+        self.draw_list = None
 
     def setup(self):
         # Create your sprites and sprite lists here
         self.space_body_list = []
         self.button_list = []
+        self.draw_list = []
 
         earth = SpaceBody(self.star.x, self.star.y + 100, 5, 1000000000, arcade.color.BLUE)
         earth.set_grav_law(newton_gravitational_law(earth, self.star)/earth.m)
         earth.rotation_acc = Vector(0, earth.grav_law)
         earth.vel = Vector(math.sqrt(abs(earth.rotation_acc.y*distance(earth, self.star))), 0)
 
-        self.space_body_list.append(self.star)
+        self.draw_list.append(self.star)
+
         self.space_body_list.append(earth)
+        self.draw_list.append(earth)
 
         # TODO: CHANGE THESE
         button_increase_sun_mass = ButtonIncreaseMassSun(60, 570, self.increase_sun_mass)
@@ -275,7 +281,7 @@ class MyGame(arcade.Window):
         # the screen to the background color, and erase what we drew last frame.
         arcade.start_render()
 
-        for space_body in self.space_body_list:
+        for space_body in self.draw_list:
             arcade.draw_circle_filled(space_body.x, space_body.y, space_body.r, space_body.color)
 
         for button in self.button_list:
@@ -327,10 +333,20 @@ class MyGame(arcade.Window):
     # TODO: Does this work?
     def increase_sun_mass(self):
         self.star.m = self.star.m + (STAR_MASS * 0.5)
+        self.star.r += STAR_SIZE_INCREASE
 
     # TODO: Does this work?
     def decrease_sun_mass(self):
         self.star.m = self.star.m - (STAR_MASS * 0.5)
+        if self.star.m < 0:
+            self.star.m = 0
+            return
+        
+        self.star.r -= STAR_SIZE_DECREASE
+        if self.star.r < STAR_SIZE_DECREASE:
+            self.star.r = STAR_SIZE_DECREASE
+        
+        print(self.star.m)
 
 
 def main():
