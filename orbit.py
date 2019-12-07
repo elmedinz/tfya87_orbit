@@ -4,7 +4,7 @@ import math
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
 SCREEN_TITLE = "ORBIT"
-TIME_PER_FRAME = 1
+TIME_STEP = 1
 
 STAR_CENTER_X = SCREEN_WIDTH/2
 STAR_CENTER_Y = SCREEN_HEIGHT/2
@@ -49,6 +49,8 @@ class SpaceBody:
 
     const_dist = 0
 
+    velocities_set = False
+
     def __init__(self, x, y, r, m, color):
         self.x = x
         self.y = y
@@ -62,9 +64,8 @@ class SpaceBody:
         self.rot_vel_ratio = self.init_vel_size/self.grav_law
 
     def update_pos(self, star):
-        # move the body
-        self.x = self.x + self.vel.x*TIME_PER_FRAME + (1/2)*self.rotation_acc.x*TIME_PER_FRAME
-        self.y = self.y + self.vel.y*TIME_PER_FRAME + (1/2)*self.rotation_acc.y*TIME_PER_FRAME
+        acc_x = self.rotation_acc.x
+        acc_y = self.rotation_acc.y
 
         dx = (self.x - STAR_CENTER_X)
         dy = (self.y - STAR_CENTER_Y)
@@ -77,6 +78,7 @@ class SpaceBody:
             self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
             self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
 
+            # determine direction of acceleration
             if dx > 0:
                 self.rotation_acc.x *= -1
             if dy > 0:
@@ -91,18 +93,21 @@ class SpaceBody:
 
             self.vel = self.init_vel
 
-        #v_direction = math.pi - math.pi/2 - direction
-        #self.vel.x = self.init_vel_size * math.cos(v_direction)
-        #self.vel.y = self.init_vel_size * math.sin(v_direction)
 
         # calculate new component velocities from new acceleration
-        self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-        self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+        if not self.velocities_set:
+            # set direction of velocities before using leap frog
+            self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
+            self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+            self.velocities_set = True
+        else: 
+            # integer step leap frog algorithm
+            self.vel.x = self.vel.x + 0.5 * (self.rotation_acc.x + acc_x) * TIME_STEP
+            self.vel.y = self.vel.y + 0.5 * (self.rotation_acc.y + acc_y) * TIME_STEP
 
-        if dy < 0:
-            self.vel.x *= -1
-        if dx > 0:
-            self.vel.y *= -1
+        # move the body
+        self.x = self.x + self.vel.x * TIME_STEP + 0.5 * acc_x * TIME_STEP**2 
+        self.y = self.y + self.vel.y * TIME_STEP + 0.5 * acc_y * TIME_STEP**2
 
 class TextButton:
     """ Text-based button """
@@ -332,12 +337,12 @@ class MyGame(arcade.Window):
 
     # TODO: Does this work?
     def increase_sun_mass(self):
-        self.star.m = self.star.m + (STAR_MASS * 0.5)
+        self.star.m = self.star.m + (STAR_MASS * 0.1)
         self.star.r += STAR_SIZE_INCREASE
 
     # TODO: Does this work?
     def decrease_sun_mass(self):
-        self.star.m = self.star.m - (STAR_MASS * 0.5)
+        self.star.m = self.star.m - (STAR_MASS * 0.1)
         if self.star.m < 0:
             self.star.m = 0
             return
@@ -345,8 +350,6 @@ class MyGame(arcade.Window):
         self.star.r -= STAR_SIZE_DECREASE
         if self.star.r < STAR_SIZE_DECREASE:
             self.star.r = STAR_SIZE_DECREASE
-        
-        print(self.star.m)
 
 
 def main():
