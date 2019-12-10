@@ -16,6 +16,9 @@ STAR_SIZE_DECREASE = 1
 
 G_CONSTANT = 6.6674 * math.pow(10, -11)
 
+AU = 149597871 * 1000 # distance from sun to earth in meters.
+SCALE = 100 / AU # 100 pixels per AU.
+
 def distance(body1, body2):
     return math.sqrt(math.pow(body2.x - body1.x, 2) + math.pow(body2.y - body1.y, 2))
 
@@ -51,54 +54,58 @@ class SpaceBody:
 
     velocities_set = False
 
-    def __init__(self, x, y, r, m, color):
+    rotate_around = None
+
+    def __init__(self, name, x, y, r, m, color):
+        self.name = name
         self.x = x
         self.y = y
         self.r = r
         self.m = m
         self.color = color
 
-    def set_grav_law(self, val):
-        self.grav_law = val
-        self.init_vel_size = math.sqrt(abs((self.y - STAR_CENTER_Y)*self.grav_law))
-        self.rot_vel_ratio = self.init_vel_size/self.grav_law
+    def set_rotate_around(self, body):
+        self.rotate_around = body
 
-    def update_pos(self, star):
+    def update_pos(self, star, bodies):
+        if self.name == "star":
+            return
+
         acc_x = self.rotation_acc.x
         acc_y = self.rotation_acc.y
 
-        dx = (self.x - STAR_CENTER_X)
-        dy = (self.y - STAR_CENTER_Y)
+        sum_fy = 0
+        sum_fx = 0
 
-        direction = 0
+        dx = 0
+        dy = 0
+
+        for body in bodies:
+            if self.name == body.name:
+                continue
+
+            dx = body.x - self.x
+            dy = body.y - self.y
+            
+            # calclulate each component acceleration with constant gravity pull from star
+            #if dx != 0:
+            direction = math.atan2(dy, dx)
+            f = newton_gravitational_law(self, body)
+            fx = math.cos(direction) * f
+            fy = math.sin(direction) * f
         
-        # calclulate each component acceleration with constant gravity pull from star
-        if dx != 0:
-            direction = math.atan(abs(dy)/abs(dx))
-            self.rotation_acc.x = math.cos(direction) * newton_gravitational_law(self, star)/self.m
-            self.rotation_acc.y = math.sin(direction) * newton_gravitational_law(self, star)/self.m
+            sum_fx += fx
+            sum_fy += fy
 
-            # determine direction of acceleration
-            if dx > 0:
-                self.rotation_acc.x *= -1
-            if dy > 0:
-                self.rotation_acc.y *= -1
-        else:
-            self.rotation_acc.y = newton_gravitational_law(self, star)/self.m
-            self.rotation_acc.x = 0
-
-            if dy > 0:
-                self.rotation_acc.y *= -1
-
-
-            self.vel = self.init_vel
+        self.rotation_acc.y = sum_fy/self.m
+        self.rotation_acc.x = sum_fx/self.m
 
 
         # calculate new component velocities from new acceleration
         if not self.velocities_set:
             # set direction of velocities before using leap frog
-            self.vel.y = math.sqrt(abs(self.rotation_acc.x * dx))
-            self.vel.x = math.sqrt(abs(self.rotation_acc.y * dy))
+            self.vel.y = math.sqrt(abs(self.rotation_acc.x * (self.rotate_around.x - self.x)))
+            self.vel.x = math.sqrt(abs(self.rotation_acc.y * (self.rotate_around.y - self.y)))
             self.velocities_set = True
         else: 
             # integer step leap frog algorithm
@@ -108,6 +115,8 @@ class SpaceBody:
         # move the body
         self.x = self.x + self.vel.x * TIME_STEP + 0.5 * acc_x * TIME_STEP**2 
         self.y = self.y + self.vel.y * TIME_STEP + 0.5 * acc_y * TIME_STEP**2
+
+
 
 class TextButton:
     """ Text-based button """
@@ -211,7 +220,7 @@ def check_mouse_release_for_buttons(_x, _y, button_list):
 class ButtonIncreaseMassSun(TextButton):
     def __init__(self, center_x, center_y, action_function):
         # TODO: Change text size/font if necessary
-        super().__init__(center_x, center_y, 100, 40, "Incr. Mass: Sun", 20, "Arial")
+        super().__init__(center_x, center_y, 100, 40, "Start", 18, "Arial")
         self.action_function = action_function
 
     def on_release(self):
@@ -221,7 +230,7 @@ class ButtonIncreaseMassSun(TextButton):
 class ButtonDecreaseMassSun(TextButton):
     def __init__(self, center_x, center_y, action_function):
         # TODO: Change text size/font if necessary
-        super().__init__(center_x, center_y, 100, 40, "Decr. Mass: Sun", 20, "Arial")
+        super().__init__(center_x, center_y, 100, 40, "Decr. Mass: Sun", 18, "Arial")
         self.action_function = action_function
 
     def on_release(self):
@@ -239,7 +248,7 @@ class MyGame(arcade.Window):
     with your own code. Don't leave 'pass' in this program.
     """
 
-    star = SpaceBody(STAR_CENTER_X, STAR_CENTER_Y, STAR_SIZE, STAR_MASS, arcade.color.AMBER)
+    star = SpaceBody("star", STAR_CENTER_X, STAR_CENTER_Y, STAR_SIZE, STAR_MASS, arcade.color.AMBER)
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
@@ -259,15 +268,24 @@ class MyGame(arcade.Window):
         self.button_list = []
         self.draw_list = []
 
-        earth = SpaceBody(self.star.x, self.star.y + 100, 5, 1000000000, arcade.color.BLUE)
-        earth.set_grav_law(newton_gravitational_law(earth, self.star)/earth.m)
-        earth.rotation_acc = Vector(0, earth.grav_law)
+        earth = SpaceBody("earth", self.star.x, self.star.y + 100, 5, 1000000000, arcade.color.BLUE)
+        earth.rotation_acc = Vector(0, newton_gravitational_law(earth, self.star)/earth.m)
         earth.vel = Vector(math.sqrt(abs(earth.rotation_acc.y*distance(earth, self.star))), 0)
+        earth.set_rotate_around(self.star)
+
+        random_white_planet = SpaceBody("random_white_planet", earth.x, self.star.y + 200, 10, 100000000000, arcade.color.WHITE);
+        random_white_planet.rotation_acc = Vector(0, newton_gravitational_law(random_white_planet, self.star)/random_white_planet.m)
+        random_white_planet.vel = Vector(math.sqrt(abs(random_white_planet.rotation_acc.y*distance(earth, self.star))), 0)
+        random_white_planet.set_rotate_around(self.star)
 
         self.draw_list.append(self.star)
+        self.space_body_list.append(self.star)
 
         self.space_body_list.append(earth)
         self.draw_list.append(earth)
+
+        self.space_body_list.append(random_white_planet)
+        self.draw_list.append(random_white_planet)
 
         # TODO: CHANGE THESE
         button_increase_sun_mass = ButtonIncreaseMassSun(60, 570, self.increase_sun_mass)
@@ -287,7 +305,10 @@ class MyGame(arcade.Window):
         arcade.start_render()
 
         for space_body in self.draw_list:
-            arcade.draw_circle_filled(space_body.x, space_body.y, space_body.r, space_body.color)
+            if space_body.name == "star":
+                arcade.draw_circle_filled(space_body.x, space_body.y, space_body.r, space_body.color)
+            else:
+                arcade.draw_circle_filled(space_body.x, space_body.y, space_body.r, space_body.color)
 
         for button in self.button_list:
             button.draw()
@@ -300,7 +321,7 @@ class MyGame(arcade.Window):
         """
 
         for space_body in self.space_body_list:
-            space_body.update_pos(self.star)
+            space_body.update_pos(self.star, self.space_body_list)
 
     def on_key_press(self, key, key_modifiers):
         """
